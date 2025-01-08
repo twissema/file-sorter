@@ -1,54 +1,76 @@
+import tkinter as tk
+from tkinter import filedialog
+from datetime import datetime
 import os
 import shutil
-import logging
-import glob
-srcVar = input("Please input the target folder: \n")
-src = glob.glob(srcVar + "/**/*.*", recursive=True)
-fileloc = ''
-tfile = ''
-tfolder = ''
 
 
-# main function that takes the current trajectory and renames and moves files to the proper folder
-def main():
-    try:
-        for i in src:
-            if i.endswith("Default_Extended.txt"):
-                dirsplit = i.split('/')
-                global tfile
-                global tfolder
-                global fileloc
-                fileloc = i
-                tfile = dirsplit[-1]
-                tfolder = dirsplit[-2]
-                RenameAndMove()
-                DeleteOldFolders()
-    except:
-        logging.exception("try again, sweaty")
+def browse_folder():
+    folder_path = filedialog.askdirectory()
+    folder_entry.delete(0, tk.END)
+    folder_entry.insert(0, folder_path)
+
+def sort_files():
+    target_folder = folder_entry.get()
+
+    if not os.path.isdir(target_folder):
+        result_text.insert(tk.END, "Invalid folder path\n")
         return
 
+    for filename in os.listdir(target_folder):
+        file_path = os.path.join(target_folder, filename)
 
-# renames the file to cohort standards
-def RenameAndMove():
-    folder = tfolder.split('-')
-    AAWsplit = folder[0].split(' ')
-    annotiationsplit = folder[-1].split(' ')
-    try:
-        path = os.path.join(srcVar, f'{srcVar}/{AAWsplit[0]}')
-        if not os.path.exists(path):
-            os.mkdir(path)
-        if AAWsplit[-1].startswith('AAW'):
-            shutil.move(fileloc, f'{srcVar}/{AAWsplit[0]}/{AAWsplit[0]}-P{annotiationsplit[-1]}')
-        else:
-            shutil.move(fileloc, f'{srcVar}/{AAWsplit[0]}/{AAWsplit[0]}-M{AAWsplit[-1]}_{annotiationsplit[-1]}')
-    except:
-        logging.exception('exception while renaming your files')
+        if os.path.isfile(file_path):
+            mod_time = os.path.getmtime(file_path)
+            timestamp = datetime.fromtimestamp(mod_time).strftime("%Y%m%d")
 
-def DeleteOldFolders():
-    walk = list(os.walk(srcVar))
-    for path, _, _ in walk[::-1]:
-        if len(os.listdir(path)) == 0:
-            os.rmdir(path)
+            new_file_name = f"{timestamp}_{filename}"
+            file_ext = os.path.splitext(filename)[1][1:].lower()
+            dest_folder = os.path.join(target_folder, file_ext)
 
-if __name__ == '__main__':
-    main()
+            if not os.path.exists(dest_folder):
+                os.makedirs(dest_folder)
+
+            new_file_path = os.path.join(dest_folder, new_file_name)
+            shutil.move(file_path, new_file_path)
+            result_text.insert(tk.END, f"Moved and renamed {filename} to {new_file_name} in {file_ext} folder\n")
+
+    result_text.insert(tk.END, "Sorting completed\n")
+
+
+
+# Create the main window
+root = tk.Tk()
+root.title("File Sorter")
+
+# Create a frame for the folder selection
+folder_frame = tk.Frame(root)
+folder_frame.pack(fill=tk.X, pady=10)
+
+folder_label = tk.Label(folder_frame, text="Target Folder:")
+folder_label.pack(side=tk.LEFT, padx=10)
+
+folder_entry = tk.Entry(folder_frame)
+folder_entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=10)
+
+# Create a frame for the Browse button
+browse_frame = tk.Frame(root)
+browse_frame.pack(fill=tk.X, pady=5)
+
+browse_button = tk.Button(browse_frame, text="Browse", command=browse_folder)
+browse_button.pack(expand=True, fill=tk.X, padx=150)  # Centered with padding
+
+# Create a frame for the result text
+result_frame = tk.Frame(root)
+result_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+
+result_text = tk.Text(result_frame, height=10)
+result_text.pack(fill=tk.BOTH, expand=True, padx=10)
+
+# Create a frame for the Go button
+go_frame = tk.Frame(root)
+go_frame.pack(fill=tk.X, pady=10)
+
+go_button = tk.Button(go_frame, text="Sort files", command=sort_files)
+go_button.pack(expand=True, fill=tk.X, padx=150)  # Centered with padding
+root.mainloop()
